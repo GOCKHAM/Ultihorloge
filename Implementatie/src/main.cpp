@@ -16,6 +16,15 @@
 #define Button2  26
 #define Button3  14
 
+unsigned long lastButton1Millis = 0;
+unsigned long lastButton2Millis = 0;
+unsigned long lastButton3Millis = 0;
+const unsigned long buttonDebounceInterval = 50; 
+
+int buttonState = 0;
+int lastButtonState = 0; 
+
+
 // ------------------------------------------------------------------------------------------------------------------------------
 
 // OLED Display Settings
@@ -58,8 +67,8 @@ int pulsePin = 35;
 
 // ------------------------------------------------------------------------------------------------------------------------------
 // GPS PIN and Configuration:
-#define TX_PIN 16
-#define RX_PIN 17
+#define RX_PIN 16
+#define TX_PIN 17
 
 unsigned long gpsStartTime = 0; // Variable to keep track of GPS timer start time
 const unsigned long GPS_DELAY = 50; // Delay for GPS timer in milliseconds
@@ -264,9 +273,87 @@ void updateDisplay() {
     }
     u8g2.sendBuffer();
 }
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
+void automaticMeasurement(){
+
+  // Check if it is time for automatic readings
+  if (millis() - lastTempMillis >= TEMP_INTERVAL) {
+  lastTempMillis = millis();
+
+
+  measureTemperatureAndHumidity(); // Measure temperature and humidity
+  measureGPS();  // Measure GPS latitude and logitude
+  updateDisplay();
+  }
+
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
+// 🟢 Function for Button 1 - Measures Temperature, Humidity & GPS
+void handleButton1() {
+
+  // Button 1 for manual measurements and Peltier activation
+  unsigned long currentMillis = millis();
+  static bool lastButton1State = LOW;
+  bool button1State = digitalRead(Button1);
+
+  if (button1State == HIGH && lastButton1State == LOW && (currentMillis - lastButton1Millis >= buttonDebounceInterval)) {
+  lastButton1Millis = currentMillis; // Update the timer
+
+  Serial.println("Button 1 pressed: Manual measurement started!");
+  measureTemperatureAndHumidity(); // Measure temperature and humidity
+  measureGPS();  // Measure GPS latitude and logitude
+
+  currentPage = 2; // Go to page 2
+  updateDisplay();
+  }
+  lastButton1State = button1State;
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
+// 🟢 Function for Button 2 - Measure Heart Rate
+void handleButton2() {
+
+  // COMING SOON FOR HEART RATE
+  
+}
+
+
+// 🟢 Function for Button 3 - Show Time & Date
+void handleButton3() {
+
+  // Press button 3 (Go back to Page 1 - Time & Date).
+  unsigned long currentMillis = millis();
+  static bool lastButton3State = LOW;
+  bool button3State = digitalRead(Button3);
+  if (button3State == HIGH && lastButton3State == LOW && (currentMillis - lastButton3Millis >= buttonDebounceInterval)) {
+  lastButton3Millis = currentMillis;
+  Serial.println("Button 3 pressed: Back to Time page.");
+  currentPage = 1; // Return to page 1 (Time & Date)
+  updateDisplay();
+  }
+  lastButton3State = button3State;
+
+
+  // keep display Time and date every seconds, updated
+  if (currentMillis - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
+  lastDisplayUpdate = currentMillis;
+  updateDisplay();
+  }
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
 void loop() {
 
-void updateDisplay();
+  automaticMeasurement();
+  handleButton1();
+  handleButton2();
+  handleButton3();
 
 }
 
