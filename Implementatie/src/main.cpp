@@ -10,7 +10,11 @@
 #include <Adafruit_Sensor.h>
 #include <PubSubClient.h> 
 #include <credentialss.h>
+#include "DFRobot_Heartrate.h"
 
+
+
+// ------------------------------------------------------------------------------------------------------------------------------
 
 #define Button1  25
 #define Button2  26
@@ -24,6 +28,8 @@ const unsigned long buttonDebounceInterval = 50;
 int buttonState = 0;
 int lastButtonState = 0; 
 
+
+// ------------------------------------------------------------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------------------------------------------------------
 
@@ -51,6 +57,16 @@ const unsigned long debounceTime = 300;  // Debounce time in ms
 void updateDisplay(); // Function prototype
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
+bool SwitchToGPS = false;
+
+
+unsigned long A_B_StartMillis = 0;
+const unsigned long TEMP_HUM_DISPLAY_TIME = 10000; // 10 seconds Temp/Hum
+
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
 // DHT sensor configuration for temperature and humidity
 #define DHTPIN 13
 #define DHTTYPE DHT22
@@ -62,13 +78,19 @@ float hum;
 DHT dht(DHTPIN, DHTTYPE);
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
 // Heart Rate PIN
-int pulsePin = 35;
+#define heartratePin 34
+DFRobot_Heartrate heartrate(DIGITAL_MODE); ///< ANALOG_MODE or DIGITAL_MODE
+uint8_t BPM = 0; // Variable to store heart rate value
+unsigned long lastHeartRateMillis = 0;
+const long HEART_RATE_INTERVAL = 100; // Measure heart rate every second when on heart rate page
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
 // GPS PIN and Configuration:
-#define RX_PIN 16
-#define TX_PIN 17
+#define RX_PIN 17
+#define TX_PIN 16
 
 unsigned long gpsStartTime = 0; // Variable to keep track of GPS timer start time
 const unsigned long GPS_DELAY = 50; // Delay for GPS timer in milliseconds
@@ -81,6 +103,7 @@ float latitude = 0.0;
 float longitude = 0.0;  // Variables for latitude and longitude
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
 // NTP = Network Time Protocol. This is for date and time
 const char* NTP_SERVER = "pool.ntp.org";
 const long  GMT_OFFSET_SEC = 0; //19800;
@@ -93,7 +116,7 @@ void setTimezone(String timezone){
   tzset();  // Configuration timezone
 }
 
-String getCurrentDateAndTime(); 
+WiFiClientSecure espClient;
 
 // ------------------------------------------------------------------------------------------------------------------------------
 
@@ -120,14 +143,25 @@ void setup() {
   // ---------------------------------------------------------------------------
 
   // Connecting to WiFi
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
-    Serial.println("Connecting to Wi-Fi");
+  
+  Serial.print("Connecting to Wi-Fi");
+  unsigned long startAttemptTime = millis();
+  
+  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 5000) { 
+    Serial.print(".");
+    delay(500); 
   }
-  Serial.println("Connected to Wi-Fi");
-  Serial.print("IP adres: ");
-  Serial.println(WiFi.localIP());
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConnected to Wi-Fi!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\nWi-Fi not connected, but continuing...");
+  }
 
 
 
@@ -136,43 +170,26 @@ void setup() {
   configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
   setTimezone("CET-1CEST,M3.5.0,M10.5.0/3"); 
 
-  // Print the current date and time for once
-  Serial.print("Current Time and Date: ");
-  Serial.println(getCurrentDateAndTime());
-
   // ---------------------------------------------------------------------------
   
-  // Timer configuration for ESP32
-  timer = timerBegin(0, 80, true);          // Timer 0, prescaler 80 (1 tick = 1us)
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 2000, true);       // 2000us = 2ms
-  timerAlarmEnable(timer);                  // Start the timer
 
   // Showing for the first time
   updateDisplay();
 }
 
-
 // ------------------------------------------------------------------------------------------------------------------------------
-// Function to get Time and Date informatioon
-String getCurrentDateAndTime() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
-    return "";
+
+// Function to check te WiFi status and reconnect
+void checkWiFiReconnect() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Wi-Fi lost, reconnecting...");
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
   }
-  
-  char timeStringBuff[50]; 
-  strftime(timeStringBuff, sizeof(timeStringBuff), "%Y-%m-%d %H:%M:%S", &timeinfo);
-  
-  String asString(timeStringBuff);
-  asString.replace(" ", "-");
-
-  return asString;
-
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
 // Function to measure Temperature and Humidity
 void measureTemperatureAndHumidity() {
     temp = dht.readTemperature();
@@ -198,10 +215,18 @@ void measureTemperatureAndHumidity() {
 
 // Function to measure Heart Rate
 void measureHeartRate(){
-
-  // COMING SOON
-
-
+  // Reading Heart Rate sensor value
+  uint8_t rateValue;
+  heartrate.getValue(heartratePin);   
+  rateValue = heartrate.getRate();   // Get heart rate value 
+  
+  if(rateValue) {
+    BPM = rateValue;
+    Serial.print("Heart Rate: ");
+    Serial.print(BPM);
+    Serial.println(" BPM");
+  }
+  delay(20);
 }
 // ------------------------------------------------------------------------------------------------------------------------------
 
@@ -231,22 +256,11 @@ void measureGPS(){
 
 // ------------------------------------------------------------------------------------------------------------------------------
 
-
 void updateDisplay() {
   u8g2.clearBuffer();
     if (currentPage == 1) {
-        // Display Time & Date on main page 1
-        u8g2.setFont(u8g2_font_helvB10_tf);
-        u8g2.setCursor(20, 20);
-        u8g2.print("Time & Date");
-        
-        u8g2.setFont(u8g2_font_helvB08_tf);
-        u8g2.setCursor(10, 40);
-        u8g2.print(getCurrentDateAndTime());
-    } 
-
-    	else if (currentPage == 2) {
-      // Display Temperature and Humidity on page 2
+        // Display Temperature and Humidity on page 2
+      if (!SwitchToGPS) {
         u8g2.setFont(u8g2_font_ncenB10_tr);
         u8g2.setCursor(5, 15);
         u8g2.print("Temperature: ");
@@ -259,19 +273,64 @@ void updateDisplay() {
         u8g2.setFont(u8g2_font_ncenB08_tr);
         u8g2.setCursor(5, 60);
         u8g2.print(hum); u8g2.print(" %");
-        
-  }
-      else if (currentPage == 3) {
-      // Display Heart Rate on page 3
+
+    } else {
         u8g2.setFont(u8g2_font_ncenB10_tr);
-        u8g2.setCursor(5, 15);
-        u8g2.print("Heart Rate: "); 
-        u8g2.setCursor(5, 45);
-        u8g2.print(BPM); 
-        u8g2.print(" BPM");
-  
+        u8g2.setCursor(5, 20);
+        u8g2.print("Latitude:");
+        u8g2.setFont(u8g2_font_ncenB08_tr);
+        u8g2.setCursor(5, 35);
+        u8g2.print(latitude, 6);
+        u8g2.setFont(u8g2_font_ncenB10_tr);
+        u8g2.setCursor(5, 50);
+        u8g2.print("Longitude:");
+        u8g2.setFont(u8g2_font_ncenB08_tr);
+        u8g2.setCursor(5, 60);
+        u8g2.print(longitude, 6);
     }
-    u8g2.sendBuffer();
+  }
+  else if (currentPage == 2) {
+    // Display Heart Rate
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.setCursor(5, 20);
+    u8g2.print("Heart Rate");
+    
+    u8g2.setFont(u8g2_font_logisoso28_tr);
+    u8g2.setCursor(30, 55);
+    u8g2.print(BPM);
+    
+    u8g2.setFont(u8g2_font_ncenB10_tr);
+    u8g2.setCursor(90, 55);
+    u8g2.print("BPM");
+  }
+
+
+  if (currentPage == 3) {
+    // Time & Date display
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo)) {
+        Serial.println("Failed to obtain time");
+        return;
+    }
+
+    char timeStringBuff[6];  // Format: HH:MM
+    strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M", &timeinfo);
+
+    char dateStringBuff[12];  // Format: ex. Mon, Mar 09
+    strftime(dateStringBuff, sizeof(dateStringBuff), "%a, %b %d", &timeinfo);
+
+    u8g2.setFont(u8g2_font_logisoso32_tf); 
+    u8g2.setCursor(5, 40);
+    u8g2.print(timeStringBuff); // Time display
+
+    u8g2.setFont(u8g2_font_helvB08_tf); 
+    u8g2.setCursor(10, 60);
+    u8g2.print(dateStringBuff); // Date display
+
+    drawIcons();
+
+}
+  u8g2.sendBuffer();
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
@@ -286,7 +345,21 @@ void automaticMeasurement(){
   measureTemperatureAndHumidity(); // Measure temperature and humidity
   measureGPS();  // Measure GPS latitude and logitude
   updateDisplay();
+
+
+  currentPage = 1; // Going to page 2 to show temperature and humidity
+  SwitchToGPS = false;
+
+  A_B_StartMillis = millis(); // Start the timer
+  updateDisplay();
   }
+
+  // Switching to GPS after 10 seconds
+  if (!SwitchToGPS && millis() - A_B_StartMillis >= TEMP_HUM_DISPLAY_TIME) {
+    SwitchToGPS = true;
+    updateDisplay();
+  }
+
 
 }
 
@@ -307,21 +380,51 @@ void handleButton1() {
   measureTemperatureAndHumidity(); // Measure temperature and humidity
   measureGPS();  // Measure GPS latitude and logitude
 
-  currentPage = 2; // Go to page 2
+  currentPage = 1; // Go to page 2
+  SwitchToGPS = false;
+
+  A_B_StartMillis = millis(); // Start the timer
   updateDisplay();
   }
   lastButton1State = button1State;
+
+  // Switching to GPS after 10 seconds
+  if (!SwitchToGPS && millis() - A_B_StartMillis >= TEMP_HUM_DISPLAY_TIME) {
+    SwitchToGPS = true;
+    updateDisplay();
+  }
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
 
 // 🟢 Function for Button 2 - Measure Heart Rate
 void handleButton2() {
+  unsigned long currentMillis = millis();
+  static bool lastButton2State = LOW;
+  bool button2State = digitalRead(Button2);
 
-  // COMING SOON FOR HEART RATE
+  if (button2State == HIGH && lastButton2State == LOW && (currentMillis - lastButton2Millis >= buttonDebounceInterval)) {
+    lastButton2Millis = currentMillis;
+    
+    Serial.println("Button 2 pressed: Measuring heart rate!");
+    measureHeartRate(); // Start heart rate measurement
   
+    currentPage = 2; // Go to Heart Rate page
+    updateDisplay();
+}
+lastButton2State = button2State;
+
+ // When on heart rate page, continuously measure heart rate
+ if (currentPage == 2) {
+  if (millis() - lastHeartRateMillis >= HEART_RATE_INTERVAL) {
+    lastHeartRateMillis = millis();
+    measureHeartRate();
+    updateDisplay();
+  }
+}
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------
 
 // 🟢 Function for Button 3 - Show Time & Date
 void handleButton3() {
@@ -333,7 +436,7 @@ void handleButton3() {
   if (button3State == HIGH && lastButton3State == LOW && (currentMillis - lastButton3Millis >= buttonDebounceInterval)) {
   lastButton3Millis = currentMillis;
   Serial.println("Button 3 pressed: Back to Time page.");
-  currentPage = 1; // Return to page 1 (Time & Date)
+  currentPage = 3; // Return to page 1 (Time & Date)
   updateDisplay();
   }
   lastButton3State = button3State;
@@ -347,13 +450,27 @@ void handleButton3() {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-
+// ------------------------------------------------------------------------------------------------------------------------------
 void loop() {
+
+
+  // keep display Time and date every seconds, updated
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
+    lastDisplayUpdate = currentMillis;
+    updateDisplay();
+  }
+
 
   automaticMeasurement();
   handleButton1();
   handleButton2();
   handleButton3();
 
+
+  checkWiFiReconnect();
+
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
