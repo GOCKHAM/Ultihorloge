@@ -1,0 +1,1012 @@
+[
+    {
+        "id": "4af8f9a7b3325967",
+        "type": "tab",
+        "label": "Flow 2",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "1104dd2896b458d0",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Temperature",
+        "topic": "sensor/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 250,
+        "y": 180,
+        "wires": [
+            [
+                "4227372ffb2b1003",
+                "dd44e0a1e3882c26",
+                "56e6cb8bbb2bbf00"
+            ]
+        ]
+    },
+    {
+        "id": "3afbe33275decbf6",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Humidity",
+        "topic": "sensor/humidity",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 240,
+        "y": 340,
+        "wires": [
+            [
+                "659ce50638217d3d",
+                "332c3929e93528ec"
+            ]
+        ]
+    },
+    {
+        "id": "2bea9f96184ba704",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Heart Rate",
+        "topic": "sensor/heartRate",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 250,
+        "y": 740,
+        "wires": [
+            [
+                "8b8eca82775de5d0",
+                "1b61068792720bfb"
+            ]
+        ]
+    },
+    {
+        "id": "31af1f38d71abd99",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT GPS",
+        "topic": "sensor/gps",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 230,
+        "y": 860,
+        "wires": [
+            [
+                "22d7d7a7d2cc631c"
+            ]
+        ]
+    },
+    {
+        "id": "6b465d64aad3e251",
+        "type": "worldmap",
+        "z": "4af8f9a7b3325967",
+        "name": "GPS Map",
+        "lat": "msg.payload.lat",
+        "lon": "msg.payload.lon",
+        "zoom": "10",
+        "layer": "OSMG",
+        "cluster": "",
+        "maxage": "",
+        "layers": "show",
+        "panit": "true",
+        "zoomlock": "true",
+        "hiderightclick": "false",
+        "coords": "none",
+        "path": "",
+        "overlist": "DR,CO,RA,DN,HM",
+        "maplist": "OSMG,OSMC,EsriC,EsriS,EsriT,EsriO,EsriDG,NatGeo,UKOS,OpTop",
+        "mapname": "",
+        "mapurl": "",
+        "mapopt": "",
+        "mapwms": false,
+        "x": 1180,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "dd44e0a1e3882c26",
+        "type": "function",
+        "z": "4af8f9a7b3325967",
+        "name": "Temperature Warning",
+        "func": "// Controleer of de temperatuur bestaat in de payload\nif (msg.payload && msg.payload.temperature !== undefined) {\n    // Controleer of de temperatuur hoger is dan 25°C\n    if (msg.payload.temperature >= 24) {\n        msg.payload = {\n            chatId: \"1419533098\", // Vervang dit met jouw Chat-ID\n            type: \"message\",\n            content: \"Waarschuwing: Hoge temperatuur gedetecteerd! (\" + msg.payload.temperature + \"°C)\"\n        };\n        return msg; // Verstuur het bericht naar de volgende node\n    } else {\n        // Geen waarschuwing, stop de flow hier\n        return null;\n    }\n} else {\n    node.error(\"Temperatuur is niet beschikbaar in de payload.\", msg);\n    return null;\n}\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 820,
+        "y": 160,
+        "wires": [
+            [
+                "ca1e00c8e77fbb0d"
+            ]
+        ]
+    },
+    {
+        "id": "ca1e00c8e77fbb0d",
+        "type": "telegram sender",
+        "z": "4af8f9a7b3325967",
+        "name": "Send Telegram Alert",
+        "bot": "bcf99d53b55d3cbf",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 1160,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4227372ffb2b1003",
+        "type": "change",
+        "z": "4af8f9a7b3325967",
+        "name": "Extract Temperature",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.temperature",
+                "tot": "msg"
+            }
+        ],
+        "x": 820,
+        "y": 240,
+        "wires": [
+            [
+                "44a6b92a9f08a11a"
+            ]
+        ]
+    },
+    {
+        "id": "44a6b92a9f08a11a",
+        "type": "ui_gauge",
+        "z": "4af8f9a7b3325967",
+        "name": "Temperature",
+        "group": "dashboard_group",
+        "order": 1,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Temperature (°C)",
+        "label": "°C",
+        "format": "{{msg.payload}}",
+        "min": 0,
+        "max": 50,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 1270,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "659ce50638217d3d",
+        "type": "change",
+        "z": "4af8f9a7b3325967",
+        "name": "Extract Humidity",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.humidity",
+                "tot": "msg"
+            }
+        ],
+        "x": 800,
+        "y": 340,
+        "wires": [
+            [
+                "c778e9e075dd2c25"
+            ]
+        ]
+    },
+    {
+        "id": "c778e9e075dd2c25",
+        "type": "ui_gauge",
+        "z": "4af8f9a7b3325967",
+        "name": "Humidity",
+        "group": "dashboard_group",
+        "order": 2,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Humidity (%)",
+        "label": "%",
+        "format": "{{msg.payload}}",
+        "min": 0,
+        "max": 100,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "x": 1280,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "8b8eca82775de5d0",
+        "type": "change",
+        "z": "4af8f9a7b3325967",
+        "name": "Extract Heart Rate",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.heartRate",
+                "tot": "msg"
+            }
+        ],
+        "x": 810,
+        "y": 700,
+        "wires": [
+            [
+                "f0930ff4de821d6c"
+            ]
+        ]
+    },
+    {
+        "id": "f0930ff4de821d6c",
+        "type": "ui_gauge",
+        "z": "4af8f9a7b3325967",
+        "name": "Heart Rate",
+        "group": "dashboard_group",
+        "order": 3,
+        "width": 6,
+        "height": 3,
+        "gtype": "gage",
+        "title": "Heart Rate (BPM)",
+        "label": "BPM",
+        "format": "{{msg.payload}}",
+        "min": 40,
+        "max": 180,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "x": 1250,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "22d7d7a7d2cc631c",
+        "type": "function",
+        "z": "4af8f9a7b3325967",
+        "name": "Format Lat & Long ",
+        "func": "// Debug de binnenkomende payload\nnode.warn(\"📡 GPS Debug - Ontvangen msg.payload: \" + JSON.stringify(msg.payload)); \n\n// **Stap 1: Status bepalen (Automatisch of Manueel)**\nlet status = \"Automatisch\"; // Standaard is Automatisch\nif (msg.payload.source === \"button1\") {\n    status = \"Manueel\"; // ✅ Als het van button1 komt, status = Manueel\n}\n\n// **Stap 2: GPS Opslaan bij elke meting**  \nif (msg.payload.latitude !== undefined && msg.payload.longitude !== undefined) {\n    context.set(\"lastGPS\", {\n        latitude: msg.payload.latitude,\n        longitude: msg.payload.longitude\n    });\n}\n\n// **Stap 3: Gebruik de laatst bekende GPS als er geen nieuwe is**\nlet gpsData = context.get(\"lastGPS\") || { latitude: null, longitude: null };\n\n// **Stap 4: Controleer of we GPS-coördinaten hebben**\nif (gpsData.latitude === null || gpsData.longitude === null) {\n    node.warn(\"⚠️ Geen geldige GPS-data beschikbaar voor deze meting!\");\n    return null; // Stop als er nog nooit GPS-data is ontvangen\n}\n\n// **Stap 5: Bouw het bericht voor de worldmap-node**\nmsg.payload = {\n    name: \"GPS Tracker\",\n    lat: gpsData.latitude, // ✅ Gebruik de laatst bekende GPS\n    lon: gpsData.longitude,\n    layer: \"GPS\",\n    icon: \"fa-map-marker\",\n    iconColor: status === \"Automatisch\" ? \"blue\" : \"red\", // 🔹 Rood = Manueel, Blauw = Automatisch\n    iconSize: \"large\",\n    status: status\n};\n\nnode.warn(\"✅ GPS Data geformatteerd voor Worldmap: \" + JSON.stringify(msg.payload));\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 810,
+        "y": 880,
+        "wires": [
+            [
+                "6b465d64aad3e251",
+                "e2058da7e2284d1b"
+            ]
+        ]
+    },
+    {
+        "id": "6153a684def0184e",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 1",
+        "topic": "button1/control",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 180,
+        "y": 40,
+        "wires": [
+            [
+                "73fc3cfac2cdec3d"
+            ]
+        ]
+    },
+    {
+        "id": "d4eab2cb21c0f0bf",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT PWM Adjust",
+        "topic": "peltier/pwm",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 250,
+        "y": 100,
+        "wires": [
+            [
+                "73fc3cfac2cdec3d"
+            ]
+        ]
+    },
+    {
+        "id": "73fc3cfac2cdec3d",
+        "type": "function",
+        "z": "4af8f9a7b3325967",
+        "name": "Peltier Logic",
+        "func": "// Huidige PWM & Status\nlet peltier_pwm = flow.get(\"peltier_pwm\") || 255;\nlet peltier_status = flow.get(\"peltier_status\") || \"OFF\";\n\n// Als temperatuur > 25°C en Peltier is uit, inschakelen\nif (msg.topic === \"sensor/temperature\") {\n    let temp = msg.payload.temperature;\n    if (temp >= 25 && peltier_status === \"OFF\") {\n        node.warn(\"🌡️ Temperatuur boven 25°C -> Peltier AAN\");\n        peltier_status = \"ON\";\n        flow.set(\"peltier_status\", peltier_status);\n        flow.set(\"peltier_pwm\", peltier_pwm);\n\n        node.send({ topic: \"peltier/control\", payload: peltier_pwm });\n\n        setTimeout(() => {\n            node.warn(\"⏳ 3s voorbij -> Peltier UIT\");\n            flow.set(\"peltier_status\", \"OFF\");\n            node.send({ topic: \"peltier/control\", payload: 0 });\n        }, 5000);\n    }\n}\n\n// Als knop 1 wordt ingedrukt\nelse if (msg.topic === \"button1/control\") {\n    node.warn(\"🔘 Knop 1 ingedrukt -> Peltier AAN\");\n    peltier_status = \"ON\";\n    flow.set(\"peltier_status\", peltier_status);\n    flow.set(\"peltier_pwm\", peltier_pwm);\n\n    node.send({ topic: \"peltier/control\", payload: peltier_pwm });\n    setTimeout(() => {\n        node.warn(\"⏳ 3s voorbij -> Peltier UIT\");\n        flow.set(\"peltier_status\", \"OFF\");\n        node.send({ topic: \"peltier/control\", payload: 0 });\n    }, 5000);\n}\n\n// Als PWM wordt gewijzigd in Node-RED\nelse if (msg.topic === \"peltier/pwm\") {\n    node.warn(\"⚙️ Nieuwe PWM waarde ontvangen: \" + msg.payload);\n    peltier_pwm = msg.payload;\n    flow.set(\"peltier_pwm\", peltier_pwm);\n    node.send({ topic: \"peltier/control\", payload: peltier_pwm });\n}",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 790,
+        "y": 60,
+        "wires": [
+            [
+                "62d7495bf3e78e9a"
+            ]
+        ]
+    },
+    {
+        "id": "62d7495bf3e78e9a",
+        "type": "mqtt out",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Peltier Control",
+        "topic": "peltier/control",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "62915e50d6bd2a5a",
+        "x": 1140,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "4b1b7d6d2f71b1e3",
+        "type": "http in",
+        "z": "4af8f9a7b3325967",
+        "name": "Siri Command",
+        "url": "/siri/peltier",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 230,
+        "y": 1000,
+        "wires": [
+            [
+                "c07446b592accf94"
+            ]
+        ]
+    },
+    {
+        "id": "c07446b592accf94",
+        "type": "switch",
+        "z": "4af8f9a7b3325967",
+        "name": "Check Command",
+        "property": "req.query.command",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "on",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 460,
+        "y": 1000,
+        "wires": [
+            [
+                "10b95315c7b0b69d"
+            ]
+        ]
+    },
+    {
+        "id": "10b95315c7b0b69d",
+        "type": "change",
+        "z": "4af8f9a7b3325967",
+        "name": "Set PWM to 255",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "255",
+                "tot": "num"
+            }
+        ],
+        "x": 660,
+        "y": 980,
+        "wires": [
+            [
+                "8c552424820234a8",
+                "4ba198259cf2b199",
+                "8661effe6ad1d106"
+            ]
+        ]
+    },
+    {
+        "id": "8c552424820234a8",
+        "type": "mqtt out",
+        "z": "4af8f9a7b3325967",
+        "name": "Peltier ON",
+        "topic": "peltier/control",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "62915e50d6bd2a5a",
+        "x": 930,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "8661effe6ad1d106",
+        "type": "delay",
+        "z": "4af8f9a7b3325967",
+        "name": "Wait 5 sec",
+        "pauseType": "delay",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "1",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 660,
+        "y": 1040,
+        "wires": [
+            [
+                "34d04e2c24098b86"
+            ]
+        ]
+    },
+    {
+        "id": "34d04e2c24098b86",
+        "type": "change",
+        "z": "4af8f9a7b3325967",
+        "name": "Set PWM to 0",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "0",
+                "tot": "num"
+            }
+        ],
+        "x": 940,
+        "y": 1040,
+        "wires": [
+            [
+                "5577664c5ccb91ef"
+            ]
+        ]
+    },
+    {
+        "id": "5577664c5ccb91ef",
+        "type": "mqtt out",
+        "z": "4af8f9a7b3325967",
+        "name": "Peltier OFF",
+        "topic": "peltier/control",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "62915e50d6bd2a5a",
+        "x": 1170,
+        "y": 1040,
+        "wires": []
+    },
+    {
+        "id": "4ba198259cf2b199",
+        "type": "http response",
+        "z": "4af8f9a7b3325967",
+        "name": "Siri Response",
+        "statusCode": "200",
+        "headers": {},
+        "x": 1180,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "16ede475ff39c4b0",
+        "type": "join",
+        "z": "4af8f9a7b3325967",
+        "name": "Merge Sensor Data",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "",
+        "joinerType": "auto",
+        "useparts": true,
+        "accumulate": false,
+        "timeout": "5",
+        "count": "4",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 780,
+        "y": 480,
+        "wires": [
+            [
+                "3031be2457d72301"
+            ]
+        ]
+    },
+    {
+        "id": "3031be2457d72301",
+        "type": "function",
+        "z": "4af8f9a7b3325967",
+        "name": "Format Notion Payload",
+        "func": "let localTime = new Date().toISOString().replace(\"T\", \" \").replace(\"Z\", \"\").split(\".\")[0]; \n\n//Controleer of msg.payload correct is\nnode.log(\"Ontvangen payload: \" + JSON.stringify(msg.payload));\n\n// Zorg ervoor dat we het juiste formaat hebben\nif (typeof msg.payload === \"string\") {\n    try {\n        msg.payload = JSON.parse(msg.payload);  // JSON parseren als het een string is\n    } catch (e) {\n        node.warn(\"⚠️ Fout bij JSON parseren!\");\n        return null;  // Stop als het geen geldig JSON is\n    }\n}\n\n// Bouw de juiste Notion-payload\nlet payload = {\n    parent: { database_id: \"19b8a609872e80c08b9de5a615b1f57f\" },\n    properties: {\n        Timestamp: { title: [{ text: { content: localTime } }] }, // ✅ Correcte datum in ISO-formaat\n        Temperature: msg.payload[\"sensor/temperature\"] !== undefined ? { number: msg.payload[\"sensor/temperature\"].temperature } : undefined,\n        Humidity: msg.payload[\"sensor/humidity\"] !== undefined ? { number: msg.payload[\"sensor/humidity\"].humidity } : undefined,\n        Heartrate: msg.payload[\"sensor/heartRate\"] !== undefined ? { number: msg.payload[\"sensor/heartRate\"].heartRate } : undefined,\n        Latitude: msg.payload[\"sensor/gps\"]?.latitude !== undefined ? { rich_text: [{ text: { content: msg.payload[\"sensor/gps\"].latitude.toString() } }] } : undefined,\n        Longitude: msg.payload[\"sensor/gps\"]?.longitude !== undefined ? { rich_text: [{ text: { content: msg.payload[\"sensor/gps\"].longitude.toString() } }] } : undefined,\n        Status: { select: { name: \"Automatisch\" } } // ✅ Standaard automatisch\n    }\n};\n\n// Verwijder ongedefinieerde velden (anders kan Notion ze niet verwerken)\nObject.keys(payload.properties).forEach(key => {\n    if (payload.properties[key] === undefined) {\n        delete payload.properties[key];\n    }\n});\n\n\nnode.log(\"Verwerkte Notion Payload: \" + JSON.stringify(payload)); // Debug: Controleer Notion payload\nmsg.payload = payload;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1070,
+        "y": 480,
+        "wires": [
+            [
+                "67757981b406ff50",
+                "31380941ac174cbd"
+            ]
+        ]
+    },
+    {
+        "id": "c8850ab803ea6dbc",
+        "type": "function",
+        "z": "4af8f9a7b3325967",
+        "name": "Handle Button Press",
+        "func": "let localTime = new Date().toISOString().replace(\"T\", \" \").replace(\"Z\", \"\").split(\".\")[0]; \n\n// Controleer of msg.payload correct is\nnode.log(\"Ontvangen payload: \" + JSON.stringify(msg.payload));\n\n// Zorg ervoor dat we het juiste formaat hebben\nif (typeof msg.payload === \"string\") {\n    try {\n        msg.payload = JSON.parse(msg.payload);  // JSON parseren als het een string is\n    } catch (e) {\n        node.warn(\"⚠️ Fout bij JSON parseren!\");\n        return null;  // Stop als het geen geldig JSON is\n    }\n}\n\n// Lees de bron en status uit het MQTT-bericht\nlet source = msg.payload.source || \"\";\nlet status = msg.payload.status || \"Automatisch\"; // Default naar \"Automatisch\" als status ontbreekt\n\n// Controleer of het een handmatige actie is\nif (source === \"button1\" || source === \"button2\") {\n    status = \"Manueel\";\n}\n\nnode.log(\"Geregistreerde status: \" + status + \", Bron: \" + source);\n\n// Bouw de juiste Notion-payload\nlet payload = {\n    parent: { database_id: \"19b8a609872e80c08b9de5a615b1f57f\" },\n    properties: {\n        Timestamp: { title: [{ text: { content: localTime } }] }, // 🔹 Correct Notion datum-formaat\n        Temperature: msg.payload.temperature !== undefined ? { number: msg.payload.temperature } : undefined,\n        Humidity: source === \"button1\" ? { number: msg.payload.humidity || null } : undefined,\n        Heartrate: source === \"button2\" ? { number: msg.payload.heartRate || null } : undefined,\n        Latitude: msg.payload.latitude !== undefined ? { rich_text: [{ text: { content: msg.payload.latitude.toString() } }] } : undefined,\n        Longitude: msg.payload.longitude !== undefined ? { rich_text: [{ text: { content: msg.payload.longitude.toString() } }] } : undefined,\n        Status: { select: { name: status } } // ✅ Zet de juiste status\n    }\n};\n\n// Verwijder ongedefinieerde velden (anders kan Notion ze niet verwerken)\nObject.keys(payload.properties).forEach(key => {\n    if (payload.properties[key] === undefined) {\n        delete payload.properties[key];\n    }\n});\n\nnode.log(payload); // Debug: Controleer het Notion payload-object\nmsg.payload = payload;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 600,
+        "wires": [
+            [
+                "67757981b406ff50",
+                "31380941ac174cbd"
+            ]
+        ]
+    },
+    {
+        "id": "67757981b406ff50",
+        "type": "http request",
+        "z": "4af8f9a7b3325967",
+        "name": "Send to Notion",
+        "method": "POST",
+        "ret": "txt",
+        "paytoqs": "ignore",
+        "url": "https://api.notion.com/v1/pages",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "Authorization",
+                "keyValue": "",
+                "valueType": "other",
+                "valueValue": "Bearer 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"
+            },
+            {
+                "keyType": "Content-Type",
+                "keyValue": "",
+                "valueType": "other",
+                "valueValue": "application/json"
+            },
+            {
+                "keyType": "other",
+                "keyValue": "Notion-Version",
+                "valueType": "other",
+                "valueValue": "2022-06-28"
+            }
+        ],
+        "x": 1400,
+        "y": 600,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f9b2b63829f5a5a4",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Temperature",
+        "topic": "sensor/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 510,
+        "y": 420,
+        "wires": [
+            [
+                "16ede475ff39c4b0"
+            ]
+        ]
+    },
+    {
+        "id": "7d2d6c0e35ced672",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Humidity",
+        "topic": "sensor/humidity",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 500,
+        "y": 460,
+        "wires": [
+            [
+                "16ede475ff39c4b0"
+            ]
+        ]
+    },
+    {
+        "id": "48c0d263cd25e4f3",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Heart Rate",
+        "topic": "sensor/heartRate",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 510,
+        "y": 500,
+        "wires": [
+            [
+                "16ede475ff39c4b0"
+            ]
+        ]
+    },
+    {
+        "id": "cc8911e9306d3874",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT GPS",
+        "topic": "sensor/gps",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 490,
+        "y": 540,
+        "wires": [
+            [
+                "16ede475ff39c4b0"
+            ]
+        ]
+    },
+    {
+        "id": "415031d76fc8b67c",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 1",
+        "topic": "button1/control",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 500,
+        "y": 580,
+        "wires": [
+            [
+                "c8850ab803ea6dbc"
+            ]
+        ]
+    },
+    {
+        "id": "63212234d694fbdf",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 2",
+        "topic": "button2/control",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 500,
+        "y": 620,
+        "wires": [
+            [
+                "c8850ab803ea6dbc"
+            ]
+        ]
+    },
+    {
+        "id": "56e6cb8bbb2bbf00",
+        "type": "debug",
+        "z": "4af8f9a7b3325967",
+        "name": "Temperatuur Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 820,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "31380941ac174cbd",
+        "type": "debug",
+        "z": "4af8f9a7b3325967",
+        "name": "Notion Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1060,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "332c3929e93528ec",
+        "type": "debug",
+        "z": "4af8f9a7b3325967",
+        "name": "Vochtigheid Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 810,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "1b61068792720bfb",
+        "type": "debug",
+        "z": "4af8f9a7b3325967",
+        "name": "HeartRate Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 810,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "e2058da7e2284d1b",
+        "type": "debug",
+        "z": "4af8f9a7b3325967",
+        "name": "GPS Debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1190,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "5cfe650550b0705f",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 1",
+        "topic": "button1/control",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 160,
+        "y": 900,
+        "wires": [
+            [
+                "22d7d7a7d2cc631c"
+            ]
+        ]
+    },
+    {
+        "id": "4d5e276ceca53c8e",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 1",
+        "topic": "button1/control",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 180,
+        "y": 260,
+        "wires": [
+            [
+                "659ce50638217d3d",
+                "4227372ffb2b1003",
+                "dd44e0a1e3882c26"
+            ]
+        ]
+    },
+    {
+        "id": "d8b073c4e0eaf12d",
+        "type": "mqtt in",
+        "z": "4af8f9a7b3325967",
+        "name": "MQTT Button 2",
+        "topic": "button2/control",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "62915e50d6bd2a5a",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 160,
+        "y": 700,
+        "wires": [
+            [
+                "8b8eca82775de5d0"
+            ]
+        ]
+    },
+    {
+        "id": "62915e50d6bd2a5a",
+        "type": "mqtt-broker",
+        "name": "Broker",
+        "broker": "1611470c8626424fa51594ffbd7a3fd3.s1.eu.hivemq.cloud",
+        "port": "8883",
+        "tls": "",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "bcf99d53b55d3cbf",
+        "type": "telegram bot",
+        "botname": "UltiHorloge",
+        "usernames": "",
+        "chatids": "1419533098",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "dashboard_group",
+        "type": "ui_group",
+        "name": "Dashboard",
+        "tab": "dashboard_tab",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "dashboard_tab",
+        "type": "ui_tab",
+        "name": "IoT Dashboard",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    }
+]
