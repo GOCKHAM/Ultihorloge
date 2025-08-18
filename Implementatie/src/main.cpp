@@ -10,7 +10,8 @@
 #include <Adafruit_Sensor.h>
 #include <PubSubClient.h> 
 #include <credentialss.h>
-#include "DFRobot_Heartrate.h"
+#include <ArduinoJson.h>
+#include <HTTPClient.h>
 
 
 
@@ -19,6 +20,14 @@
 #define Button1  25 // GPIO 25
 #define Button2  26 // GPIO 26
 #define Button3  14 // GPIO 14
+
+// ------------------------------------------------------------------------------------------------------------------------------
+
+#define peltierPin 32   // GPIO 35
+
+// Peltier status
+int peltierPwmValue = 0;   // Default off
+bool peltierActive = false; 
 
 // ------------------------------------------------------------------------------------------------------------------------------
 
@@ -71,7 +80,7 @@ const unsigned long GPS_DISPLAY_TIME = 10000; // 10 seconds GPS
 
 bool displayActive = false;
 unsigned long screenTimeoutMillis = 0;   // Time of last page change
-const unsigned long SCREEN_TIMEOUT = 180000; // 3 minutes (in milliseconds)
+const unsigned long SCREEN_TIMEOUT = 60000; // 1 minutes (in milliseconds)
 
 // ------------------------------------------------------------------------------------------------------------------------------
 // DHT sensor configuration for temperature and humidity
@@ -85,12 +94,16 @@ float hum;
 DHT dht(DHTPIN, DHTTYPE);
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Heart Rate PIN
-#define heartratePin 32
-DFRobot_Heartrate heartrate(DIGITAL_MODE); ///< ANALOG_MODE or DIGITAL_MODE
-uint8_t BPM = 0; // Variable to store heart rate value
-unsigned long lastHeartRateMillis = 0;
-const long HEART_RATE_INTERVAL = 100; // Measure heart rate every second when on heart rate page
+// ===  OpenWeather  ===
+const char* openWeatherApiKey = OPENWEATHER_KEY;   // staat in credentialss.h
+const char* openWeatherHost   = "api.openweathermap.org";
+
+void getWeather(float lat, float lon);
+void displayWeather(float t, const char* desc);
+float weatherTemp = NAN; 
+char weatherDesc[32]=""; // OpenWeather
+String city;
+
 
 // ------------------------------------------------------------------------------------------------------------------------------
 // GPS PIN and Configuration:
@@ -126,6 +139,28 @@ WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
 // ------------------------------------------------------------------------------------------------------------------------------
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+    payload[length] = '\0';
+    String message = String((char*)payload);
+
+  if (String(topic) == "peltier/control") {
+    int pwmValue = message.toInt();
+    Serial.print("New PWM value: ");
+    Serial.println(pwmValue);
+
+    if (pwmValue >= 0 && pwmValue <= 255) {
+      ledcWrite(0, pwmValue);
+      Serial.println("Peltier PWM updated.");
+    } else {
+      Serial.println("Invalid PWM value received.");
+    }
+  }
+
+     
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------------------------------------
 
 // WiFi Logo Bitmap on display
@@ -155,6 +190,10 @@ void setup() {
   pinMode(Button1, INPUT);
   pinMode(Button2, INPUT);
   pinMode(Button3, INPUT);
+  
+  // LEDC (PWM) Initialize
+  ledcSetup(0, 5000, 8);      // Channel 0, 5kHz frequency, 8-bit resolution (0-255)
+  ledcAttachPin(peltierPin, 0);  // Link GPIO4 to channel 0
 
   // ---------------------------------------------------------------------------
 
@@ -178,7 +217,7 @@ void setup() {
   // Connecting to WiFi
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   Serial.print("Connecting to Wi-Fi");
   unsigned long startAttemptTime = millis();
@@ -222,7 +261,7 @@ void checkWiFiReconnect() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Wi-Fi lost, reconnecting...");
     WiFi.disconnect();
-    WiFi.begin(ssid, password);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
 }
 
@@ -246,10 +285,12 @@ void reconnect() {
             // Abonneer op meerdere topics
             client.subscribe("sensor/temperature");
             client.subscribe("sensor/humidity");
-            client.subscribe("sensor/heartRate");
             client.subscribe("sensor/gps");
+            client.subscribe("sensor/weather");
+            client.subscribe("peltier/control");
             client.subscribe("button1/control");
             client.subscribe("button2/control");
+            
 
 
         } else {
@@ -285,20 +326,67 @@ void measureTemperatureAndHumidity() {
 
 
 // ------------------------------------------------------------------------------------------------------------------------------
-void measureHeartRate(){
-  // Reading Heart Rate sensor value
-  uint8_t rateValue;
-  heartrate.getValue(heartratePin);   // A1 foot sampled values
-  rateValue = heartrate.getRate();   // Get heart rate value 
-  
-  if(rateValue) {
-    BPM = rateValue;
-    Serial.print("Heart Rate: ");
-    Serial.print(BPM);
-    Serial.println(" BPM");
+
+void getWeather(float lat, float lon) {
+  Serial.print("Fetching weather for lat: ");
+  Serial.print(lat, 6);
+  Serial.print(", lon: ");
+  Serial.println(lon, 6);
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi niet verbonden!");
+    return;
   }
-  delay(20);
+
+  HTTPClient http;
+  String url = "http://api.openweathermap.org/data/2.5/weather?lat=" + String(lat, 6) +
+               "&lon=" + String(lon, 6) + "&units=metric&appid=" + openWeatherApiKey;
+
+  Serial.print("Request URL: ");
+  Serial.println(url);
+
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode != 200) {
+    Serial.print("HTTP error: ");
+    Serial.println(httpCode);
+    http.end();
+    return;
+  }
+
+  String payload = http.getString();
+  Serial.println("RAW JSON response:");
+  Serial.println(payload);
+
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if (error) {
+    Serial.print(F("JSON error: "));
+    Serial.println(error.f_str());
+    http.end();
+    return;
+  }
+
+  weatherTemp = doc["main"]["temp"].as<float>();
+  city = doc["name"].as<String>(); 
+
+  const char* desc = doc["weather"][0]["description"];
+  strncpy(weatherDesc, desc, sizeof(weatherDesc));
+  weatherDesc[sizeof(weatherDesc) - 1] = '\0'; // null-terminator
+
+  Serial.print("City: ");
+  Serial.println(city);
+  Serial.print("Temperature: ");
+  Serial.println(weatherTemp);
+  Serial.print("Description: ");
+  Serial.println(weatherDesc);
+
+  http.end();
 }
+
+
 
 // ------------------------------------------------------------------------------------------------------------------------------
 void measureGPS(){
@@ -390,18 +478,16 @@ void updateDisplay() {
     }
   }
   else if (currentPage == 2) {
-    // Display Heart Rate
-    u8g2.setFont(u8g2_font_ncenB14_tr);
-    u8g2.setCursor(5, 20);
-    u8g2.print("Heart Rate");
-    
-    u8g2.setFont(u8g2_font_logisoso28_tr);
-    u8g2.setCursor(30, 55);
-    u8g2.print(BPM);
-    
-    u8g2.setFont(u8g2_font_ncenB10_tr);
-    u8g2.setCursor(90, 55);
-    u8g2.print("BPM");
+
+        u8g2.setFont(u8g2_font_helvB10_tr);
+        u8g2.setCursor(0, 15); u8g2.print(city);
+
+        u8g2.setFont(u8g2_font_helvB14_tr);
+        u8g2.setCursor(0,35); u8g2.print(weatherTemp,1); u8g2.print(" C");
+
+        u8g2.setFont(u8g2_font_helvR10_tr);
+        u8g2.setCursor(0,55); u8g2.print(weatherDesc);
+        
   }
 
 
@@ -442,7 +528,8 @@ void automaticMeasurement(){
 
     measureTemperatureAndHumidity(); // Measure temperature and humidity
     measureGPS();  // Measure GPS latitude and logitude
-    measureHeartRate(); // Measure heart rate
+    if (!isnan(latitude) && !isnan(longitude) && (latitude != 0.0 || longitude != 0.0)) {
+      getWeather(latitude, longitude);}
     updateDisplay();
 
   // Set status as 'Automatic'
@@ -460,9 +547,13 @@ void automaticMeasurement(){
   String gpsPayload = "{\"latitude\":" + String(latitude, 6) + ",\"longitude\":" + String(longitude, 6) + ",\"status\":\"Automatic\"}";
   client.publish("sensor/gps", gpsPayload.c_str());
 
-  // Publish heart rate to Note Red
-  String heartPayload = "{\"heartRate\":" + String(BPM) + ",\"status\":\"" + sendStatus + "\",\"source\":\"button2\"}";
-  client.publish("sensor/heartRate", heartPayload.c_str());
+        String wPayload = "{\"outsideT\":" + String(weatherTemp,1) +
+                  ",\"desc\":\"" + String(weatherDesc) + "\"" + 
+                  ",\"status\":\"Automatic\"}";
+
+  client.publish("sensor/weather", wPayload.c_str());
+
+
 
     displayActive = true;
     currentPage = 1; // Going to page 2 to show temperature and humidity
@@ -530,7 +621,7 @@ void handleButton1() {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Function for Button 2 - Measure Heart Rate
+// Function for Button 2 - Measure outside temperature
 void handleButton2() {
   unsigned long currentMillis = millis();
   static bool lastButton2State = LOW;
@@ -539,27 +630,29 @@ void handleButton2() {
   if (button2State == HIGH && lastButton2State == LOW && (currentMillis - lastButton2Millis >= buttonDebounceInterval)) {
     lastButton2Millis = currentMillis;
     
-    Serial.println("Button 2 pressed: Measuring heart rate!");
-    measureHeartRate(); // Start heart rate measurement
+    Serial.println("Button 2 pressed: Measuring Oudside temperature!");
+
+    measureGPS();
+    if (!isnan(latitude) && !isnan(longitude) && (latitude != 0.0 || longitude != 0.0)) {
+      getWeather(latitude, longitude);
+
+      String button2Payload = "{\"outsideT\":" + String(weatherTemp,1) +
+                  ",\"desc\":\"" + String(weatherDesc) + "\"" + 
+                  ",\"status\":\"" + sendStatus + "\",\"source\":\"button2\"}";
+
+    client.publish("button2/control", button2Payload.c_str());
     
+    } else {
+    Serial.println("Geen GPS‑fix: kan geen weer ophalen.");
+    }
     sendStatus = "Manueel";
-    String heartPayload = "{\"heartRate\":" + String(BPM) + ",\"status\":\"" + sendStatus + "\",\"source\":\"button2\"}";
-    client.publish("sensor/heartRate", heartPayload.c_str());
 
     displayActive = true;
-    currentPage = 2; // Go to Heart Rate page
+    currentPage = 2; // Go to Outside Temperature page
     updateDisplay();
   }
   lastButton2State = button2State;
   
-  // When on heart rate page, continuously measure heart rate
-  if (currentPage == 2) {
-    if (millis() - lastHeartRateMillis >= HEART_RATE_INTERVAL) {
-      lastHeartRateMillis = millis();
-      measureHeartRate();
-      updateDisplay();
-    }
-  }
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------
